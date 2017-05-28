@@ -157,57 +157,6 @@ TEST (StringTokenizerTest, MatchSimpleSearchPatternComplex2)
   ASSERT_EQ(5, match_result[3]);
 }
 
-static string test_find_identifier_prefix(const string &line, unsigned *start)
-{
-  size_t n = line.find('^');
-
-  return StringTokenizer().find_identifier_prefix(line, n + 1, start);
-}
-
-TEST (StringTokenizerTest, TestFindIdentifierPrefix)
-{
-  unsigned start;
-  string r = test_find_identifier_prefix("foo.bar^", &start);
-
-  ASSERT_EQ ("bar", r);
-  ASSERT_EQ (5, start);
-}
-
-TEST (StringTokenizerTest, TestFindIdentifierAtStart)
-{
-  unsigned start;
-  string r = test_find_identifier_prefix("foo^", &start);
-
-  ASSERT_EQ ("foo", r);
-  ASSERT_EQ (1, start);
-}
-
-TEST (StringTokenizerTest, TestFindIdentifierInvalid)
-{
-  unsigned start;
-  string r = test_find_identifier_prefix("^", &start);
-
-  ASSERT_EQ ("", r);
-  ASSERT_EQ (1, start);
-}
-
-TEST (StringTokenizerTest, TestFindIdentifierWithArrow)
-{
-  unsigned start;
-  string r = test_find_identifier_prefix("foo->test^", &start);
-
-  ASSERT_EQ ("test", r);
-  ASSERT_EQ (6, start);
-}
-
-TEST (StringTokenizerTest, TestFindIdentifierOutOrRange)
-{
-  unsigned start;
-  string r = StringTokenizer().find_identifier_prefix("foo->bar", 100, &start);
-  ASSERT_EQ ("", r);
-  ASSERT_EQ (100, start);
-}
-
 TEST (StringTokenizerTest, FindMatchInvalid)
 {
   MatchResult *r = StringTokenizer().find_match(new CompletionCandidate("foo_bar"), "xyz");

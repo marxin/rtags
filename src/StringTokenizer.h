@@ -284,38 +284,6 @@ bool StringTokenizer::is_boundary_match(const vector<string> &parts,
   return false;
 }
 
-string StringTokenizer::find_identifier_prefix(const string &line, unsigned column, unsigned *start)
-{
-  int i;
-
-  /* As column is one-based and we are pointed after the string, subtract 2.  */
-  column -= 2;
-
-  if (column >= line.length())
-  {
-    *start = column + 2;
-    return "";
-  }
-
-  for (i = column; i >= 0; i--)
-  {
-    if (isalnum(line[i]) || line[i] == '_')
-      ;
-    else
-      break;
-  }
-
-  /* Add one for pointing to a next character.  */
-  i++;
-
-  string r = line.substr(i, column - i + 1);
-
-  /* One-based index.  */
-  *start = i + 1;
-
-  return r;
-}
-
 vector<MatchResult *>
 StringTokenizer::find_and_sort_matches(vector<CompletionCandidate *> &candidates, const string &query)
 {
