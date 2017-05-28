@@ -403,6 +403,9 @@ void CompletionThread::process(Request *request)
             printCompletions(std::vector<MatchResult *>(), request, request->prefix.length());
             error() << "No completion results available" << request->location;
         }
+
+        clang_disposeCodeCompleteResults(results);
+	// TODO: release memory
     }
 }
 
