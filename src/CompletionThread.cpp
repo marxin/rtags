@@ -24,7 +24,7 @@
 #include <sstream>
 #include <fstream>
 #include "string_playground.h"
-#include "json.hpp"
+#include "rct/json/json.hpp"
 
 using namespace nlohmann;
 
