@@ -1,4 +1,4 @@
-#include "string_playground.h"
+#include "StringTokenizer.h"
 
 TEST (StringTokenizerTest, BreakIdentifierWithUnderscore)
 {
