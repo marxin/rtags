@@ -30,7 +30,7 @@
 #include "rct/Thread.h"
 #include "Source.h"
 #include "RTags.h"
-#include "string_playground.h"
+#include "StringTokenizer.h"
 
 class CompletionThread : public Thread
 {

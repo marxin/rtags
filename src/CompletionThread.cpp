@@ -23,7 +23,7 @@
 
 #include <sstream>
 #include <fstream>
-#include "string_playground.h"
+#include "StringTokenizer.h"
 #include "rct/json/json.hpp"
 
 using namespace nlohmann;
@@ -207,7 +207,6 @@ void CompletionThread::process(Request *request)
         mCacheList.moveToEnd(cache);
     }
     mMutex.unlock();
-    const bool sendDebug = testLog(LogLevel::Debug);
 
     assert(!cache->translationUnit || cache->source == request->source);
     if (!cache->translationUnit) {
@@ -279,35 +278,11 @@ void CompletionThread::process(Request *request)
         }
     }
 
-    std::string line;
-    unsigned int current_line = 0;
-
-    if (request->unsaved.size())
-    {
-      std::istringstream s(request->unsaved.constData());
-      while (std::getline(s, line))
-      {
-	current_line++;
-	if (current_line == request->location.line())
-	  break;
-      }
-    }
-    else
-    {
-      std::fstream fs(request->source.sourceFile());
-      while (std::getline(fs, line))
-      {
-	current_line++;
-	if (current_line == request->location.line())
-	  break;
-      }
-    }
-
     StringTokenizer st;
-    unsigned request_column;
-    string prefix = st.find_identifier_prefix(line, request->location.column(), &request_column);
 
-    LOG() << "line: " << line << "PREFIX: " << prefix << " original column: " << request->location.column() << "," << "column: " << request_column;
+    LOG() << "line: " << request->location.line() << "column: "
+         << request->location.column() << ", prefix: "
+         << request->prefix;
 
     if (reparse) {
         sw.restart();
@@ -330,7 +305,7 @@ void CompletionThread::process(Request *request)
         completionFlags |= CXCodeComplete_IncludeMacros;
 
     CXCodeCompleteResults *results = clang_codeCompleteAt(cache->translationUnit->unit, sourceFile.constData(),
-                                                          request->location.line(), request_column,
+                                                          request->location.line(), request->location.column() - request->prefix.length(),
                                                           &unsaved, unsaved.Length ? 1 : 0, completionFlags);
     completeTime = cache->codeCompleteTime = sw.restart();
     LOG() << "Generated completions for" << request->location << (results ? "successfully" : "unsuccessfully") << "in" << completeTime << "ms";
@@ -379,8 +354,8 @@ void CompletionThread::process(Request *request)
 
 	    candidates.push_back(candidate);
 
+	    bool ok = true;
             const int chunkCount = clang_getNumCompletionChunks(string);
-            bool ok = true;
             for (int j=0; j<chunkCount; ++j) {
                 const CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(string, j);
                 String text = RTags::eatString(clang_getCompletionChunkText(string, j));
@@ -397,26 +372,35 @@ void CompletionThread::process(Request *request)
                         candidate->signature += ' ';
                 }
             }
+
+	    if (ok) {
+		const unsigned int annotations = clang_getCompletionNumAnnotations(string);
+		for (unsigned j=0; j<annotations; ++j) {
+		    const CXStringScope annotation = clang_getCompletionAnnotation(string, j);
+		    const char *cstr = clang_getCString(annotation);
+		    if (const int len = strlen(cstr)) {
+			if (!candidate->annotation.empty())
+			    candidate->annotation += ' ';
+			candidate->annotation + cstr;
+			}
+		    }
+	    }
         }
 
-	vector<MatchResult *> results = st.find_and_sort_matches(candidates, prefix);
+	vector<MatchResult *> matches = st.find_and_sort_matches(candidates, request->prefix);
  
-	std::unordered_set<string> found;
-	for (unsigned j = 0; j < results.size(); j++)
-	  LOG() << "CANDIDATE:" << results[j]->candidate->name;
-
-        if (results.size() > 0) {
+        if (!matches.empty()) {
             // Sort pointers instead of shuffling candidates around
-            printCompletions(results, request, prefix.length());
+            printCompletions(matches, request, request->prefix.length());
             processTime = sw.elapsed();
-            LOG() << "Sent" << results.size() << "completions for" << request->location;
+            LOG() << "Sent" << matches.size() << "completions for" << request->location;
             warning("Processed %s, parse %d/%d, complete %d, process %d => %d completions (unsaved %zu)",
                     request->location.toString().constData(),
                     parseTime, reparseTime, completeTime, processTime, nodeCount, request->unsaved.size());
 
         } else {
             LOG() << "No completions available for" << request->location;
-            printCompletions(std::vector<MatchResult *>(), request, prefix.length());
+            printCompletions(std::vector<MatchResult *>(), request, request->prefix.length());
             error() << "No completion results available" << request->location;
         }
     }
@@ -429,12 +413,12 @@ Value CompletionThread::Completions::Candidate::toValue(unsigned int f) const
         ret["completion"] = completion;
     if (!signature.isEmpty())
         ret["signature"] = signature;
-    if (!annotation.isEmpty())
-        ret["annotation"] = annotation;
     if (!parent.isEmpty())
         ret["parent"] = parent;
     if (!briefComment.isEmpty())
         ret["briefComment"] = briefComment;
+    if (!annotation.isEmpty())
+        ret["annotation"] = annotation;
     ret["priority"] = priority;
 #ifdef RTAGS_COMPLETION_TOKENS_ENABLED
     ret["distance"] = distance;
@@ -559,6 +543,7 @@ void CompletionThread::printCompletions(const vector<MatchResult *> &results, Re
 		      {"kind", result->candidate->kind},
 		      {"parent", result->candidate->parent},
 		      {"brief_comment", result->candidate->brief_comment},
+		      {"annotation", result->candidate->annotation},
 		      {"priority", result->candidate->priority}
 		    };
             if (elisp) {

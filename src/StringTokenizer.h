@@ -47,13 +47,15 @@ static void upper(string &str)
 class CompletionCandidate
 {
   public:
-    CompletionCandidate(string n): name(n), signature(""), kind(""), parent(""), brief_comment(""), priority(-1) {}
+    CompletionCandidate(string n): name(n), signature(""), kind(""), parent(""),
+	brief_comment(""), annotation(""), priority(-1) {}
 
     string name;
     string signature;
     string kind;
     string parent;
     string brief_comment;
+    string annotation;
     int priority;
 };
 
