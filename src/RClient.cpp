@@ -116,6 +116,7 @@ std::initializer_list<CommandLineParser::Option<RClient::OptionType> > opts = {
     { RClient::Validate, "validate", 0, CommandLineParser::NoValue, "Validate database files for current project." },
     { RClient::Tokens, "tokens", 0, CommandLineParser::Required, "Dump tokens for file. --tokens file.cpp:123-321 for range." },
     { RClient::DeadFunctions, "find-dead-functions", 0, CommandLineParser::Optional, "Find functions declared/defined in the current file that are never in the project." },
+    { RClient::DeadVariables, "find-dead-variables", 0, CommandLineParser::Optional, "Find variables declared/defined in the current file that are never in the project." },
 
     { RClient::None, String(), 0, CommandLineParser::NoValue, "" },
     { RClient::None, String(), 0, CommandLineParser::NoValue, "Command flags:" },
@@ -1157,9 +1158,10 @@ CommandLineParser::ParseStatus RClient::parse(size_t argc, char **argv)
         case GenerateTest:
         case Diagnose:
         case DeadFunctions:
+        case DeadVariables:
         case FixIts: {
             Path p = std::move(value);
-            if (!p.exists() && (!p.isEmpty() || type != DeadFunctions)) {
+            if (!p.exists() && (!p.isEmpty() || (type != DeadFunctions && type != DeadVariables))) {
                 return { String::format<1024>("%s does not exist", p.constData()), CommandLineParser::Parse_Error };
             }
 
@@ -1189,6 +1191,9 @@ CommandLineParser::ParseStatus RClient::parse(size_t argc, char **argv)
                 break;
             case DeadFunctions:
                 queryType = QueryMessage::DeadFunctions;
+                break;
+            case DeadVariables:
+                queryType = QueryMessage::DeadVariables;
                 break;
             case CheckIncludes:
                 queryType = QueryMessage::DumpFile;

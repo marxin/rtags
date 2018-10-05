@@ -38,6 +38,7 @@ public:
         ClearProjects,
         CodeCompleteAt,
         DeadFunctions,
+        DeadVariables,
         DebugLocations,
         DeleteProject,
         Dependencies,

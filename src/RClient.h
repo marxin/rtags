@@ -60,6 +60,7 @@ public:
         CurrentProject,
         CursorKind,
         DeadFunctions,
+        DeadVariables,
         DebugLocations,
         DeclarationOnly,
         DefinitionOnly,

@@ -697,7 +697,10 @@ void Server::handleQueryMessage(const std::shared_ptr<QueryMessage> &message, co
         sendDiagnostics(message, conn);
         break;
     case QueryMessage::DeadFunctions:
-        deadFunctions(message, conn);
+        deadSymbols(message, conn, true);
+        break;
+    case QueryMessage::DeadVariables:
+        deadSymbols(message, conn, false);
         break;
     case QueryMessage::CodeCompleteAt:
         codeCompleteAt(message, conn);
@@ -1646,17 +1649,17 @@ void Server::jobCount(const std::shared_ptr<QueryMessage> &query, const std::sha
     conn->finish();
 }
 
-void Server::deadFunctions(const std::shared_ptr<QueryMessage> &query, const std::shared_ptr<Connection> &conn)
+void Server::deadSymbols(const std::shared_ptr<QueryMessage> &query, const std::shared_ptr<Connection> &conn, bool function)
 {
     std::shared_ptr<Project> project = projectForQuery(query);
     if (!project)
         project = currentProject();
     if (project) {
-        class DeadFunctionsJob : public QueryJob
+        class DeadSymbolsJob : public QueryJob
         {
         public:
-            DeadFunctionsJob(const std::shared_ptr<QueryMessage> &msg, const std::shared_ptr<Project> &project)
-                : QueryJob(msg, project)
+            DeadSymbolsJob(const std::shared_ptr<QueryMessage> &msg, const std::shared_ptr<Project> &project, bool function)
+                : QueryJob(msg, project), m_function (function)
             {}
             virtual int execute() override
             {
@@ -1671,7 +1674,7 @@ void Server::deadFunctions(const std::shared_ptr<QueryMessage> &query, const std
                 bool failed = false;
                 const std::shared_ptr<Project> proj = project();
                 auto process = [this, proj, &failed](uint32_t file) {
-                    for (const Symbol &symbol : proj->findDeadFunctions(file)) {
+                    for (const Symbol &symbol : m_function ? proj->findDeadFunctions (file) : proj->findDeadVariables(file)) {
                         if (!failed && !write(symbol))
                             failed = true;
                     }
@@ -1701,7 +1704,9 @@ void Server::deadFunctions(const std::shared_ptr<QueryMessage> &query, const std
                 }
                 return 0;
             }
-        } job(query, project);
+        private:
+            bool m_function;
+        } job(query, project, function);
         job.run(conn);
     }
     conn->finish();

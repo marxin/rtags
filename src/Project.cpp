@@ -1846,6 +1846,21 @@ Set<Symbol> Project::findCallers(const Symbol &symbol, int max)
         });
 }
 
+Set<Symbol> Project::findVariableReferences(const Symbol &symbol, int max)
+{
+    return ::findReferences(symbol, shared_from_this(), [&max](const Symbol &input, const Symbol &ref) {
+            if (!max)
+                return false;
+            if (ref.isReference() && ref.kind != CXCursor_VarDecl) {
+                if (max != -1)
+                    --max;
+                return true;
+            }
+            return false;
+        });
+}
+
+
 Set<Symbol> Project::findAllReferences(const Symbol &symbol)
 {
     if (symbol.isNull())
@@ -2965,6 +2980,35 @@ Set<Symbol> Project::findDeadFunctions(uint32_t fileId)
                 && !s.symbolName.startsWith("int main(")
                 && (!seen || seen->insert(s.usr))
                 && findCallers(s, 1).isEmpty()) {
+                ret.insert(std::move(s));
+            }
+        }
+    };
+    if (!fileId) {
+        Set<String> seenUsrs;
+        for (const auto &file : mVisitedFiles) {
+            processFile(file.first, &seenUsrs);
+        }
+    } else {
+        processFile(fileId);
+    }
+    return ret;
+}
+
+Set<Symbol> Project::findDeadVariables(uint32_t fileId)
+{
+    Set<Symbol> ret;
+    auto processFile = [this, &ret](uint32_t file, Set<String> *seen = 0) {
+        auto symbols = openSymbols(file);
+        if (!symbols)
+            return;
+
+        const int count = symbols->count();
+        for (int i=0; i<count; ++i) {
+            Symbol s = symbols->valueAt(i);
+            if (s.kind == CXCursor_VarDecl
+                && (!seen || seen->insert(s.usr))
+                && findVariableReferences(s, 1).isEmpty()) {
                 ret.insert(std::move(s));
             }
         }
